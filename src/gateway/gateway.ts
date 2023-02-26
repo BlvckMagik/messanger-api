@@ -1,21 +1,33 @@
+import { InjectModel } from '@nestjs/mongoose';
 import {
   WebSocketGateway,
   SubscribeMessage,
   WebSocketServer,
 } from '@nestjs/websockets';
+import { Model } from 'mongoose';
 import { Server } from 'socket.io';
-import { MessagesService } from 'src/messages/messages.service';
+import { Message, MessageDocument } from 'src/messages/messages.schema';
 
-@WebSocketGateway()
+@WebSocketGateway({
+  cors: {
+    origiin: ['http://localhost:3000'],
+  },
+})
 export class SocketGateway {
-  constructor(private readonly messageService: MessagesService) {}
-
   @WebSocketServer()
   server: Server;
 
+  constructor(
+    @InjectModel(Message.name) private messageModel: Model<MessageDocument>,
+  ) {}
+  onModuleInit() {
+    this.server.on('connection', (socket) => {
+      console.log('Connected ' + socket.id);
+    });
+  }
+
   @SubscribeMessage('newMessage')
-  async onNewMessage() {
-    const messages = await this.messageService.findAll();
-    this.server.sockets.emit('newMessage', messages);
+  onNewMessage() {
+    return this.messageModel.find().exec();
   }
 }
